@@ -1,14 +1,16 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  
-  <sitemap>
-    <loc>en/sitemap.xml</loc>
-    
-  </sitemap>
-  
-  <sitemap>
-    <loc>zh-cn/sitemap.xml</loc>
-    
-  </sitemap>
-  
-</sitemapindex>
+<urlset
+    xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    xmlns:xhtml="http://www.w3.org/1999/xhtml"
+    ><url>
+            <loc>/categories/</loc><lastmod>2023-02-12T13:21:54&#43;08:00</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url><url>
+            <loc>/</loc><lastmod>2023-02-12T13:21:54&#43;08:00</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url><url>
+            <loc>/k8s%E7%AC%AC%E4%B8%80%E8%AF%BE-%E5%9C%A8ubuntu%E4%B8%8A%E5%AE%89%E8%A3%85k8s%E9%9B%86%E7%BE%A4/</loc><lastmod>2023-02-12T13:21:54&#43;08:00</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url><url>
+            <loc>/posts/</loc><lastmod>2023-02-12T13:21:54&#43;08:00</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url><url>
+            <loc>/tags/</loc><lastmod>2023-02-12T13:21:54&#43;08:00</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url><url>
+            <loc>/tags/%E5%AE%89%E8%A3%85k8s%E9%9B%86%E7%BE%A4/</loc><lastmod>2023-02-12T13:21:54&#43;08:00</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url><url>
+            <loc>/categories/%E9%83%A8%E7%BD%B2/</loc><lastmod>2023-02-12T13:21:54&#43;08:00</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url><url>
+            <loc>/about/</loc><lastmod>2019-08-02T11:04:49&#43;08:00</lastmod><changefreq>weekly</changefreq><priority>0.5</priority></url><url>
+            <loc>/tags/installation/</loc><changefreq>weekly</changefreq><priority>0.5</priority></url><url>
+            <loc>/tags/content/</loc><changefreq>weekly</changefreq><priority>0.5</priority></url><url>
+            <loc>/tags/configuration/</loc><changefreq>weekly</changefreq><priority>0.5</priority></url><url>
+            <loc>/categories/documentation/</loc><changefreq>weekly</changefreq><priority>0.5</priority></url></urlset>
