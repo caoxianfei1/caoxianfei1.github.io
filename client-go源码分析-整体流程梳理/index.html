@@ -1,0 +1,919 @@
+<!doctype html><html lang=zh-cn><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=robots content="noodp"><title>Client Go整体流程梳理 - Cloud native landscape</title><meta name=Description content="Hugo theme - LoveIt"><meta property="og:title" content="Client Go整体流程梳理"><meta property="og:description" content="Client-go的整体流程如下图所示： 首先是从上面图中可以看到，有几个比较重要的组件：Reflector、Informer、Indexer"><meta property="og:type" content="article"><meta property="og:url" content="/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86/"><meta property="og:image" content="/logo.png"><meta property="article:section" content="posts"><meta property="article:published_time" content="2023-02-26T13:22:10+08:00"><meta property="article:modified_time" content="2023-02-26T13:22:10+08:00"><meta property="og:site_name" content="云原生"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content="/logo.png"><meta name=twitter:title content="Client Go整体流程梳理"><meta name=twitter:description content="Client-go的整体流程如下图所示： 首先是从上面图中可以看到，有几个比较重要的组件：Reflector、Informer、Indexer"><meta name=application-name content="云原生"><meta name=apple-mobile-web-app-title content="云原生"><meta name=theme-color content="#ffffff"><meta name=msapplication-TileColor content="#da532c"><link rel=canonical href=/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86/><link rel=prev href=/k8s%E7%AC%AC%E4%B8%80%E8%AF%BE-%E5%9C%A8ubuntu%E4%B8%8A%E5%AE%89%E8%A3%85k8s%E9%9B%86%E7%BE%A4/><link rel=stylesheet href=/css/style.min.css><link rel=preload href=https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css as=style onload='this.onload=null,this.rel="stylesheet"'><noscript><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css></noscript><link rel=preload href=https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css as=style onload='this.onload=null,this.rel="stylesheet"'><noscript><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css></noscript><script type=application/ld+json>{"@context":"http://schema.org","@type":"BlogPosting","headline":"Client Go整体流程梳理","inLanguage":"zh-CN","mainEntityOfPage":{"@type":"WebPage","@id":"\/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86\/"},"image":[{"@type":"ImageObject","url":"\/images\/Apple-Devices-Preview.png","width":3200,"height":2048}],"genre":"posts","keywords":"client-go","wordcount":7668,"url":"\/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86\/","datePublished":"2023-02-26T13:22:10+08:00","dateModified":"2023-02-26T13:22:10+08:00","license":"This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.","publisher":{"@type":"Organization","name":"xxxx","logo":{"@type":"ImageObject","url":"\/images\/avatar.png","width":528,"height":560}},"author":{"@type":"Person","name":"CXF"},"description":""}</script></head><body data-header-desktop=fixed data-header-mobile=auto><script type=text/javascript>(window.localStorage&&localStorage.getItem("theme")?localStorage.getItem("theme")==="dark":"auto"==="auto"?window.matchMedia("(prefers-color-scheme: dark)").matches:"auto"==="dark")&&document.body.setAttribute("theme","dark")</script><div id=mask></div><div class=wrapper><header class=desktop id=header-desktop><div class=header-wrapper><div class=header-title><a href=/ title="Cloud native landscape"><span class=header-title-pre><i class='fa-solid fa-cloud'></i></span>云原生</a></div><div class=menu><div class=menu-inner><a class=menu-item href=/posts/>所有文章 </a><a class=menu-item href=/tags/>标签 </a><a class=menu-item href=/categories/>分类 </a><a class=menu-item href=/categories/documentation/>文档 </a><a class=menu-item href=/about/>关于 </a><a class=menu-item href=/https:/github.com/caoxianfei1 title=GitHub><i class='fab fa-github fa-fw' aria-hidden=true></i> </a><span class="menu-item delimiter"></span><span class="menu-item search" id=search-desktop>
+<input type=text placeholder=搜索文章标题或内容... id=search-input-desktop>
+<a href=javascript:void(0); class="search-button search-toggle" id=search-toggle-desktop title=搜索><i class="fas fa-search fa-fw" aria-hidden=true></i></a>
+<a href=javascript:void(0); class="search-button search-clear" id=search-clear-desktop title=清空><i class="fas fa-times-circle fa-fw" aria-hidden=true></i></a>
+<span class="search-button search-loading" id=search-loading-desktop><i class="fas fa-spinner fa-fw fa-spin" aria-hidden=true></i></span>
+</span><a href=javascript:void(0); class="menu-item theme-switch" title=切换主题><i class="fas fa-adjust fa-fw" aria-hidden=true></i></a></div></div></div></header><header class=mobile id=header-mobile><div class=header-container><div class=header-wrapper><div class=header-title><a href=/ title="Cloud native landscape"><span class=header-title-pre><i class='fa-solid fa-cloud'></i></span>云原生</a></div><div class=menu-toggle id=menu-toggle-mobile><span></span><span></span><span></span></div></div><div class=menu id=menu-mobile><div class=search-wrapper><div class="search mobile" id=search-mobile><input type=text placeholder=搜索文章标题或内容... id=search-input-mobile>
+<a href=javascript:void(0); class="search-button search-toggle" id=search-toggle-mobile title=搜索><i class="fas fa-search fa-fw" aria-hidden=true></i></a>
+<a href=javascript:void(0); class="search-button search-clear" id=search-clear-mobile title=清空><i class="fas fa-times-circle fa-fw" aria-hidden=true></i></a>
+<span class="search-button search-loading" id=search-loading-mobile><i class="fas fa-spinner fa-fw fa-spin" aria-hidden=true></i></span></div><a href=javascript:void(0); class=search-cancel id=search-cancel-mobile>取消</a></div><a class=menu-item href=/posts/ title>所有文章</a><a class=menu-item href=/tags/ title>标签</a><a class=menu-item href=/categories/ title>分类</a><a class=menu-item href=/categories/documentation/ title>文档</a><a class=menu-item href=/about/ title>关于</a><a class=menu-item href=/https:/github.com/caoxianfei1 title=GitHub><i class='fab fa-github fa-fw' aria-hidden=true></i></a><a href=javascript:void(0); class="menu-item theme-switch" title=切换主题>
+<i class="fas fa-adjust fa-fw" aria-hidden=true></i></a></div></div></header><div class="search-dropdown desktop"><div id=search-dropdown-desktop></div></div><div class="search-dropdown mobile"><div id=search-dropdown-mobile></div></div><main class=main><div class=container><div class=toc id=toc-auto><h2 class=toc-title>目录</h2><div class=toc-content id=toc-content-auto></div></div><article class="page single"><h1 class="single-title animate__animated animate__flipInX">Client Go整体流程梳理</h1><div class=post-meta><div class=post-meta-line><span class=post-author><a href=/ title=Author rel=author class=author><i class="fas fa-user-circle fa-fw" aria-hidden=true></i>CXF</a></span>&nbsp;<span class=post-category>收录于 <a href=/categories/client-go/><i class="far fa-folder fa-fw" aria-hidden=true></i>client-go</a>&nbsp;<a href=/categories/%E6%BA%90%E7%A0%81/><i class="far fa-folder fa-fw" aria-hidden=true></i>源码</a></span></div><div class=post-meta-line><i class="far fa-calendar-alt fa-fw" aria-hidden=true></i>&nbsp;<time datetime=2023-02-26>2023-02-26</time>&nbsp;<i class="fas fa-pencil-alt fa-fw" aria-hidden=true></i>&nbsp;约 7668 字&nbsp;
+<i class="far fa-clock fa-fw" aria-hidden=true></i>&nbsp;预计阅读 16 分钟&nbsp;<span id=/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86/ class=leancloud_visitors data-flag-title="Client Go整体流程梳理">
+<i class="far fa-eye fa-fw" aria-hidden=true></i>&nbsp;<span class=leancloud-visitors-count></span>&nbsp;次阅读
+</span>&nbsp;</div></div><div class="details toc" id=toc-static data-kept><div class="details-summary toc-title"><span>目录</span>
+<span><i class="details-icon fas fa-angle-right" aria-hidden=true></i></span></div><div class="details-content toc-content" id=toc-content-static><nav id=TableOfContents><ul><li><a href=#万恶之源-listerwatcher-interface>万恶之源-ListerWatcher Interface</a><ul><li><a href=#首先看listerwatcher接口定义>首先看ListerWatcher接口定义</a></li></ul></li><li><a href=#list是怎样做的>List是怎样做的？</a></li><li><a href=#watch是怎样做的>Watch是怎样做的？</a></li><li><a href=#reflector是如何保存该类资源事件到deltafifo中的>Reflector是如何保存该类资源事件到DeltaFIFO中的？</a></li><li><a href=#deltafifo中保存的内容>DeltaFIFO中保存的内容？</a></li><li><a href=#event事件是如何消费的>Event事件是如何消费的？</a><ul><li><a href=#controller做了什么>Controller做了什么</a><ul><li><a href=#小结>小结</a></li></ul></li><li><a href=#sharedprocessor是如何处理addchan中的对象的>sharedProcessor是如何处理addChan中的对象的</a></li></ul></li></ul></nav></div></div><div class=content id=content><p>Client-go的整体流程如下图所示：</p><p><img class=lazyload src=/svg/loading.min.svg data-src=https://user-images.githubusercontent.com/54139479/221352238-d6796902-ec0d-413d-b5f4-32d5674a55d2.png data-srcset="https://user-images.githubusercontent.com/54139479/221352238-d6796902-ec0d-413d-b5f4-32d5674a55d2.png, https://user-images.githubusercontent.com/54139479/221352238-d6796902-ec0d-413d-b5f4-32d5674a55d2.png 1.5x, https://user-images.githubusercontent.com/54139479/221352238-d6796902-ec0d-413d-b5f4-32d5674a55d2.png 2x" data-sizes=auto alt=https://user-images.githubusercontent.com/54139479/221352238-d6796902-ec0d-413d-b5f4-32d5674a55d2.png title=client-go-informer></p><p>首先是从上面图中可以看到，有几个比较重要的组件：Reflector、Informer、Indexer。</p><p>Informer在初始化的时候，会先调用Kubernetes List API获得某种resource类型的全部对象，并且获取对象的resourceVersion缓存在内存中。然后调用watch API去watch这种resource，根据resourceVersion号去进行watch，并维护这份缓存。然后将watch到的Event加入到DeltaFIFO中，Reflector的主要工作就是在不断的watch操作。</p><h2 id=万恶之源-listerwatcher-interface>万恶之源-ListerWatcher Interface</h2><p>一提到client-go不得不说的就是ListWatch机制，该机制的主要目的是减少APIServer的压力，也就是缓存的概念，List就是第一次访问客户端第一次访问APIServer的时候是全量访问，也就是List出etcd中该类的所有的资源，比如Pod。而Watch就是监听这些已缓存的资源的是否发生了更改（ResourceVersion），如果发生变化的则调用具体的handler（Add、Update和Delete）进行处理。</p><h3 id=首先看listerwatcher接口定义>首先看ListerWatcher接口定义</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// tools/cache/listwatch.go
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=c1>// Lister is any object that knows how to perform an initial list.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>Lister</span> <span class=kd>interface</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// List should return a list type object; the Items field will be extracted, and the
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// ResourceVersion field will be used to start the watch in the right place.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nf>List</span><span class=p>(</span><span class=nx>options</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>)</span> <span class=p>(</span><span class=nx>runtime</span><span class=p>.</span><span class=nx>Object</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Watcher is any object that knows how to start a watch on a resource.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>Watcher</span> <span class=kd>interface</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// Watch should begin a watch at the specified version.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nf>Watch</span><span class=p>(</span><span class=nx>options</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>)</span> <span class=p>(</span><span class=nx>watch</span><span class=p>.</span><span class=nx>Interface</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// ListerWatcher is any object that knows how to perform an initial list and start a watch on a resource.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>ListerWatcher</span> <span class=kd>interface</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>Lister</span>
+</span></span><span class=line><span class=cl>	<span class=nx>Watcher</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=list是怎样做的>List是怎样做的？</h2><p>在Reflector的List方法中，会单独启用一个协程去进行List操作：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nx>pager</span> <span class=o>:=</span> <span class=nx>pager</span><span class=p>.</span><span class=nf>New</span><span class=p>(</span><span class=nx>pager</span><span class=p>.</span><span class=nf>SimplePageFunc</span><span class=p>(</span><span class=kd>func</span><span class=p>(</span><span class=nx>opts</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>)</span> <span class=p>(</span><span class=nx>runtime</span><span class=p>.</span><span class=nx>Object</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=k>return</span> <span class=nx>r</span><span class=p>.</span><span class=nx>listerWatcher</span><span class=p>.</span><span class=nf>List</span><span class=p>(</span><span class=nx>opts</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=p>}))</span>
+</span></span></code></pre></td></tr></table></div></div><p>pager是进行分页，其中是调用了Reflector成员的listerWatcher的List方法列举出对应opts的所有对象。下面再来看一下这个函数的到底是如何调用API Server的：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// 这里是需要用户自定义Controller
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>ListWatch</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>ListFunc</span>  <span class=nx>ListFunc</span>
+</span></span><span class=line><span class=cl>	<span class=nx>WatchFunc</span> <span class=nx>WatchFunc</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// DisableChunking requests no chunking for this list watcher.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>DisableChunking</span> <span class=kt>bool</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// List a set of apiserver resources
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>lw</span> <span class=o>*</span><span class=nx>ListWatch</span><span class=p>)</span> <span class=nf>List</span><span class=p>(</span><span class=nx>options</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>)</span> <span class=p>(</span><span class=nx>runtime</span><span class=p>.</span><span class=nx>Object</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// ListWatch is used in Reflector, which already supports pagination.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// Don&#39;t paginate here to avoid duplication.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>return</span> <span class=nx>lw</span><span class=p>.</span><span class=nf>ListFunc</span><span class=p>(</span><span class=nx>options</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>从上面可以看出，这个ListWatch是需要自定义，其实在每一种资源中都实现了对ListWatch的注册，比如Pod的Informer函数：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// informers/core/v1/pod.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=nf>NewFilteredPodInformer</span><span class=p>(</span><span class=nx>client</span> <span class=nx>kubernetes</span><span class=p>.</span><span class=nx>Interface</span><span class=p>,</span> <span class=nx>namespace</span> <span class=kt>string</span><span class=p>,</span> <span class=nx>resyncPeriod</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Duration</span><span class=p>,</span> <span class=nx>indexers</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>Indexers</span><span class=p>,</span> <span class=nx>tweakListOptions</span> <span class=nx>internalinterfaces</span><span class=p>.</span><span class=nx>TweakListOptionsFunc</span><span class=p>)</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>SharedIndexInformer</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=nx>cache</span><span class=p>.</span><span class=nf>NewSharedIndexInformer</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>		<span class=o>&amp;</span><span class=nx>cache</span><span class=p>.</span><span class=nx>ListWatch</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=nx>ListFunc</span><span class=p>:</span> <span class=kd>func</span><span class=p>(</span><span class=nx>options</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>)</span> <span class=p>(</span><span class=nx>runtime</span><span class=p>.</span><span class=nx>Object</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>				<span class=k>if</span> <span class=nx>tweakListOptions</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>					<span class=nf>tweakListOptions</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>options</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>				<span class=p>}</span>
+</span></span><span class=line><span class=cl>				<span class=k>return</span> <span class=nx>client</span><span class=p>.</span><span class=nf>CoreV1</span><span class=p>().</span><span class=nf>Pods</span><span class=p>(</span><span class=nx>namespace</span><span class=p>).</span><span class=nf>List</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>TODO</span><span class=p>(),</span> <span class=nx>options</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=p>},</span>
+</span></span><span class=line><span class=cl>			<span class=nx>WatchFunc</span><span class=p>:</span> <span class=kd>func</span><span class=p>(</span><span class=nx>options</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>)</span> <span class=p>(</span><span class=nx>watch</span><span class=p>.</span><span class=nx>Interface</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>				<span class=k>if</span> <span class=nx>tweakListOptions</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>					<span class=nf>tweakListOptions</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>options</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>				<span class=p>}</span>
+</span></span><span class=line><span class=cl>				<span class=k>return</span> <span class=nx>client</span><span class=p>.</span><span class=nf>CoreV1</span><span class=p>().</span><span class=nf>Pods</span><span class=p>(</span><span class=nx>namespace</span><span class=p>).</span><span class=nf>Watch</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>TODO</span><span class=p>(),</span> <span class=nx>options</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=p>},</span>
+</span></span><span class=line><span class=cl>		<span class=p>},</span>
+</span></span><span class=line><span class=cl>		<span class=o>&amp;</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>{},</span>
+</span></span><span class=line><span class=cl>		<span class=nx>resyncPeriod</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>indexers</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>	<span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>上面的注册的函数是<code>client.CoreV1().Pods(namespace).List(context.TODO(), options)</code>。client就是负责与API Server进行通信的客户端：kubernetes.Interface。</p><h2 id=watch是怎样做的>Watch是怎样做的？</h2><p>同样是在Reflector的ListWatch方法中单独启用一个协程去调用watch函数：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nx>w</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nx>listerWatcher</span><span class=p>.</span><span class=nf>Watch</span><span class=p>(</span><span class=nx>options</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>同样是在listwatch中使用的调用自己注册的watchFunc函数：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// Watch a set of apiserver resources
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>lw</span> <span class=o>*</span><span class=nx>ListWatch</span><span class=p>)</span> <span class=nf>Watch</span><span class=p>(</span><span class=nx>options</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>)</span> <span class=p>(</span><span class=nx>watch</span><span class=p>.</span><span class=nx>Interface</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=nx>lw</span><span class=p>.</span><span class=nf>WatchFunc</span><span class=p>(</span><span class=nx>options</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>和上面的Pod中的ListFunc一样，WatchFunc也是自己注册的。拿Pod为例，然后实际调用的就是在PodInformer注册的WatchFunc：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=k>return</span> <span class=nx>client</span><span class=p>.</span><span class=nf>CoreV1</span><span class=p>().</span><span class=nf>Pods</span><span class=p>(</span><span class=nx>namespace</span><span class=p>).</span><span class=nf>Watch</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>TODO</span><span class=p>(),</span> <span class=nx>options</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>其中Watch方法最终调用的是kubernetes/typed/core/v1下的Watch函数：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>c</span> <span class=o>*</span><span class=nx>pods</span><span class=p>)</span> <span class=nf>Watch</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>opts</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>)</span> <span class=p>(</span><span class=nx>watch</span><span class=p>.</span><span class=nx>Interface</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kd>var</span> <span class=nx>timeout</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Duration</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>opts</span><span class=p>.</span><span class=nx>TimeoutSeconds</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>timeout</span> <span class=p>=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Duration</span><span class=p>(</span><span class=o>*</span><span class=nx>opts</span><span class=p>.</span><span class=nx>TimeoutSeconds</span><span class=p>)</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=nx>opts</span><span class=p>.</span><span class=nx>Watch</span> <span class=p>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=nx>c</span><span class=p>.</span><span class=nx>client</span><span class=p>.</span><span class=nf>Get</span><span class=p>().</span>
+</span></span><span class=line><span class=cl>		<span class=nf>Namespace</span><span class=p>(</span><span class=nx>c</span><span class=p>.</span><span class=nx>ns</span><span class=p>).</span>
+</span></span><span class=line><span class=cl>		<span class=nf>Resource</span><span class=p>(</span><span class=s>&#34;pods&#34;</span><span class=p>).</span>
+</span></span><span class=line><span class=cl>		<span class=nf>VersionedParams</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>opts</span><span class=p>,</span> <span class=nx>scheme</span><span class=p>.</span><span class=nx>ParameterCodec</span><span class=p>).</span>
+</span></span><span class=line><span class=cl>		<span class=nf>Timeout</span><span class=p>(</span><span class=nx>timeout</span><span class=p>).</span>
+</span></span><span class=line><span class=cl>		<span class=nf>Watch</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>其实最终是调用了Request下的Watch函数：使用的是Request结构的RestClient(http.Client)进行通信的。</p><p>下面是client-go对于请求（request的封装）</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Request</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>c</span> <span class=o>*</span><span class=nx>RESTClient</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>warningHandler</span> <span class=nx>WarningHandler</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>rateLimiter</span> <span class=nx>flowcontrol</span><span class=p>.</span><span class=nx>RateLimiter</span>
+</span></span><span class=line><span class=cl>	<span class=nx>backoff</span>     <span class=nx>BackoffManager</span>
+</span></span><span class=line><span class=cl>	<span class=nx>timeout</span>     <span class=nx>time</span><span class=p>.</span><span class=nx>Duration</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 这里应该是最多重试次数
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>maxRetries</span> <span class=kt>int</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// generic components accessible via method setters
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>verb</span>       <span class=kt>string</span>
+</span></span><span class=line><span class=cl>	<span class=nx>pathPrefix</span> <span class=kt>string</span>
+</span></span><span class=line><span class=cl>	<span class=nx>subpath</span>    <span class=kt>string</span>
+</span></span><span class=line><span class=cl>	<span class=nx>params</span>     <span class=nx>url</span><span class=p>.</span><span class=nx>Values</span>
+</span></span><span class=line><span class=cl>	<span class=nx>headers</span>    <span class=nx>http</span><span class=p>.</span><span class=nx>Header</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// structural elements of the request that are part of the Kubernetes API conventions
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>namespace</span>    <span class=kt>string</span>
+</span></span><span class=line><span class=cl>	<span class=nx>namespaceSet</span> <span class=kt>bool</span>
+</span></span><span class=line><span class=cl>	<span class=nx>resource</span>     <span class=kt>string</span>
+</span></span><span class=line><span class=cl>	<span class=nx>resourceName</span> <span class=kt>string</span>
+</span></span><span class=line><span class=cl>	<span class=nx>subresource</span>  <span class=kt>string</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// output
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>err</span>  <span class=kt>error</span>
+</span></span><span class=line><span class=cl>	<span class=nx>body</span> <span class=nx>io</span><span class=p>.</span><span class=nx>Reader</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>retryFn</span> <span class=nx>requestRetryFunc</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=reflector是如何保存该类资源事件到deltafifo中的>Reflector是如何保存该类资源事件到DeltaFIFO中的？</h2><p>同样是在Reflector的ListAndWatch函数中，在 Watch 之后对其进行操作，使用的函数是watchHandler，具体的代码实现如下所示：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nx>err</span> <span class=p>=</span> <span class=nf>watchHandler</span><span class=p>(</span><span class=nx>start</span><span class=p>,</span> <span class=nx>w</span><span class=p>,</span> <span class=nx>r</span><span class=p>.</span><span class=nx>store</span><span class=p>,</span> <span class=nx>r</span><span class=p>.</span><span class=nx>expectedType</span><span class=p>,</span> <span class=nx>r</span><span class=p>.</span><span class=nx>expectedGVK</span><span class=p>,</span> <span class=nx>r</span><span class=p>.</span><span class=nx>name</span><span class=p>,</span> <span class=nx>r</span><span class=p>.</span><span class=nx>expectedTypeName</span><span class=p>,</span> <span class=nx>r</span><span class=p>.</span><span class=nx>setLastSyncResourceVersion</span><span class=p>,</span> <span class=nx>r</span><span class=p>.</span><span class=nx>clock</span><span class=p>,</span> <span class=nx>resyncerrc</span><span class=p>,</span> <span class=nx>stopCh</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>这里会根据watch的事件类型对其进行处理，相应的调用的是store.Add/store.Update/store.Delete，但是最终对于实现了Store接口的DeltaFIFO来说，都是Add操作。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=k>switch</span> <span class=nx>event</span><span class=p>.</span><span class=nx>Type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=k>case</span> <span class=nx>watch</span><span class=p>.</span><span class=nx>Added</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>				<span class=nx>err</span> <span class=o>:=</span> <span class=nx>store</span><span class=p>.</span><span class=nf>Add</span><span class=p>(</span><span class=nx>event</span><span class=p>.</span><span class=nx>Object</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>				<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>					<span class=nx>utilruntime</span><span class=p>.</span><span class=nf>HandleError</span><span class=p>(</span><span class=nx>fmt</span><span class=p>.</span><span class=nf>Errorf</span><span class=p>(</span><span class=s>&#34;%s: unable to add watch event object (%#v) to store: %v&#34;</span><span class=p>,</span> <span class=nx>name</span><span class=p>,</span> <span class=nx>event</span><span class=p>.</span><span class=nx>Object</span><span class=p>,</span> <span class=nx>err</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>				<span class=p>}</span>
+</span></span><span class=line><span class=cl>			<span class=k>case</span> <span class=nx>watch</span><span class=p>.</span><span class=nx>Modified</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>				<span class=nx>err</span> <span class=o>:=</span> <span class=nx>store</span><span class=p>.</span><span class=nf>Update</span><span class=p>(</span><span class=nx>event</span><span class=p>.</span><span class=nx>Object</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>				<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>					<span class=nx>utilruntime</span><span class=p>.</span><span class=nf>HandleError</span><span class=p>(</span><span class=nx>fmt</span><span class=p>.</span><span class=nf>Errorf</span><span class=p>(</span><span class=s>&#34;%s: unable to update watch event object (%#v) to store: %v&#34;</span><span class=p>,</span> <span class=nx>name</span><span class=p>,</span> <span class=nx>event</span><span class=p>.</span><span class=nx>Object</span><span class=p>,</span> <span class=nx>err</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>				<span class=p>}</span>
+</span></span><span class=line><span class=cl>			<span class=k>case</span> <span class=nx>watch</span><span class=p>.</span><span class=nx>Deleted</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>				<span class=c1>// TODO: Will any consumers need access to the &#34;last known
+</span></span></span><span class=line><span class=cl><span class=c1></span>				<span class=c1>// state&#34;, which is passed in event.Object? If so, may need
+</span></span></span><span class=line><span class=cl><span class=c1></span>				<span class=c1>// to change this.
+</span></span></span><span class=line><span class=cl><span class=c1></span>				<span class=nx>err</span> <span class=o>:=</span> <span class=nx>store</span><span class=p>.</span><span class=nf>Delete</span><span class=p>(</span><span class=nx>event</span><span class=p>.</span><span class=nx>Object</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>				<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>					<span class=nx>utilruntime</span><span class=p>.</span><span class=nf>HandleError</span><span class=p>(</span><span class=nx>fmt</span><span class=p>.</span><span class=nf>Errorf</span><span class=p>(</span><span class=s>&#34;%s: unable to delete watch event object (%#v) from store: %v&#34;</span><span class=p>,</span> <span class=nx>name</span><span class=p>,</span> <span class=nx>event</span><span class=p>.</span><span class=nx>Object</span><span class=p>,</span> <span class=nx>err</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>				<span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>因为上面的storage的实现是DeltaFIFO，所以这里调用的store.Add/store.Update/store.Delete都是DeltaFIFO的成员函数，具体实现在tools/cache/delta_fifo.go中，下面是对增删改的具体实现：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// Add inserts an item, and puts it in the queue. The item is only enqueued
+</span></span></span><span class=line><span class=cl><span class=c1>// if it doesn&#39;t already exist in the set.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>f</span> <span class=o>*</span><span class=nx>DeltaFIFO</span><span class=p>)</span> <span class=nf>Add</span><span class=p>(</span><span class=nx>obj</span> <span class=kd>interface</span><span class=p>{})</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>f</span><span class=p>.</span><span class=nx>lock</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>f</span><span class=p>.</span><span class=nx>lock</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=nx>f</span><span class=p>.</span><span class=nx>populated</span> <span class=p>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=nx>f</span><span class=p>.</span><span class=nf>queueActionLocked</span><span class=p>(</span><span class=nx>Added</span><span class=p>,</span> <span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Update is just like Add, but makes an Updated Delta.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>f</span> <span class=o>*</span><span class=nx>DeltaFIFO</span><span class=p>)</span> <span class=nf>Update</span><span class=p>(</span><span class=nx>obj</span> <span class=kd>interface</span><span class=p>{})</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>f</span><span class=p>.</span><span class=nx>lock</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>f</span><span class=p>.</span><span class=nx>lock</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=nx>f</span><span class=p>.</span><span class=nx>populated</span> <span class=p>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=nx>f</span><span class=p>.</span><span class=nf>queueActionLocked</span><span class=p>(</span><span class=nx>Updated</span><span class=p>,</span> <span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Delete is just like Add, but makes a Deleted Delta. If the given
+</span></span></span><span class=line><span class=cl><span class=c1>// object does not already exist, it will be ignored. (It may have
+</span></span></span><span class=line><span class=cl><span class=c1>// already been deleted by a Replace (re-list), for example.)  In this
+</span></span></span><span class=line><span class=cl><span class=c1>// method `f.knownObjects`, if not nil, provides (via GetByKey)
+</span></span></span><span class=line><span class=cl><span class=c1>// _additional_ objects that are considered to already exist.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>f</span> <span class=o>*</span><span class=nx>DeltaFIFO</span><span class=p>)</span> <span class=nf>Delete</span><span class=p>(</span><span class=nx>obj</span> <span class=kd>interface</span><span class=p>{})</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>id</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>f</span><span class=p>.</span><span class=nf>KeyOf</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>return</span> <span class=nx>KeyError</span><span class=p>{</span><span class=nx>obj</span><span class=p>,</span> <span class=nx>err</span><span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=nx>f</span><span class=p>.</span><span class=nx>lock</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>f</span><span class=p>.</span><span class=nx>lock</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=nx>f</span><span class=p>.</span><span class=nx>populated</span> <span class=p>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>f</span><span class=p>.</span><span class=nx>knownObjects</span> <span class=o>==</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>exists</span> <span class=o>:=</span> <span class=nx>f</span><span class=p>.</span><span class=nx>items</span><span class=p>[</span><span class=nx>id</span><span class=p>];</span> <span class=p>!</span><span class=nx>exists</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=c1>// Presumably, this was deleted when a relist happened.
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=c1>// Don&#39;t provide a second report of the same deletion.
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=k>return</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=c1>// We only want to skip the &#34;deletion&#34; action if the object doesn&#39;t
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>// exist in knownObjects and it doesn&#39;t have corresponding item in items.
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>// Note that even if there is a &#34;deletion&#34; action in items, we can ignore it,
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>// because it will be deduped automatically in &#34;queueActionLocked&#34;
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=nx>_</span><span class=p>,</span> <span class=nx>exists</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>f</span><span class=p>.</span><span class=nx>knownObjects</span><span class=p>.</span><span class=nf>GetByKey</span><span class=p>(</span><span class=nx>id</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=nx>_</span><span class=p>,</span> <span class=nx>itemsExist</span> <span class=o>:=</span> <span class=nx>f</span><span class=p>.</span><span class=nx>items</span><span class=p>[</span><span class=nx>id</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=nx>err</span> <span class=o>==</span> <span class=kc>nil</span> <span class=o>&amp;&amp;</span> <span class=p>!</span><span class=nx>exists</span> <span class=o>&amp;&amp;</span> <span class=p>!</span><span class=nx>itemsExist</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=c1>// Presumably, this was deleted when a relist happened.
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=c1>// Don&#39;t provide a second report of the same deletion.
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=k>return</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// exist in items and/or KnownObjects
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>return</span> <span class=nx>f</span><span class=p>.</span><span class=nf>queueActionLocked</span><span class=p>(</span><span class=nx>Deleted</span><span class=p>,</span> <span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>从上面的代码中可以看到，所有的事件在最后都调用了queueActionLocked，也就是将该Delta放入了一个map[string]Deltas（f.items->DeltaFIFO成员）。其中map的key就是该对象的key，同时会将该key放入到一个queue（f.queue->DeltaFIFO的成员）中等待进行处理，这样就会对每一个资源（对象）可以保证被顺序处理。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// tools/cache/delta_fifo.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>f</span> <span class=o>*</span><span class=nx>DeltaFIFO</span><span class=p>)</span> <span class=nf>queueActionLocked</span><span class=p>(</span><span class=nx>actionType</span> <span class=nx>DeltaType</span><span class=p>,</span> <span class=nx>obj</span> <span class=kd>interface</span><span class=p>{})</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>id</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>f</span><span class=p>.</span><span class=nf>KeyOf</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>return</span> <span class=nx>KeyError</span><span class=p>{</span><span class=nx>obj</span><span class=p>,</span> <span class=nx>err</span><span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=nx>oldDeltas</span> <span class=o>:=</span> <span class=nx>f</span><span class=p>.</span><span class=nx>items</span><span class=p>[</span><span class=nx>id</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>	<span class=nx>newDeltas</span> <span class=o>:=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>oldDeltas</span><span class=p>,</span> <span class=nx>Delta</span><span class=p>{</span><span class=nx>actionType</span><span class=p>,</span> <span class=nx>obj</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>	<span class=nx>newDeltas</span> <span class=p>=</span> <span class=nf>dedupDeltas</span><span class=p>(</span><span class=nx>newDeltas</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=nx>newDeltas</span><span class=p>)</span> <span class=p>&gt;</span> <span class=mi>0</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>exists</span> <span class=o>:=</span> <span class=nx>f</span><span class=p>.</span><span class=nx>items</span><span class=p>[</span><span class=nx>id</span><span class=p>];</span> <span class=p>!</span><span class=nx>exists</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=nx>f</span><span class=p>.</span><span class=nx>queue</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>f</span><span class=p>.</span><span class=nx>queue</span><span class=p>,</span> <span class=nx>id</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>		<span class=nx>f</span><span class=p>.</span><span class=nx>items</span><span class=p>[</span><span class=nx>id</span><span class=p>]</span> <span class=p>=</span> <span class=nx>newDeltas</span>
+</span></span><span class=line><span class=cl>		<span class=nx>f</span><span class=p>.</span><span class=nx>cond</span><span class=p>.</span><span class=nf>Broadcast</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=o>...</span>
+</span></span></code></pre></td></tr></table></div></div><p>从上面的代码中可以看到，其实所有的操作增删改的操作都是append，即将这些对象以及对象事件（Delta）添加至DeltaFIFO中。同时就是还会将该对象的Key添加到queue中，这里的queue的作用就是维护在Pop DeltaFIFO的时候可以将保证顺序弹出。其中Key的计算是由成员keyFunc决定的。每一个资源所对应的key应该都是不一样的。成员queue是用来保存消费顺序的（Pop）。</p><p>DeltaFIFO中保存的内容应该是这样的：</p><img width=676 alt=image-20221008140948618 src=https://user-images.githubusercontent.com/54139479/221352291-a952f8d5-6204-4bb0-8448-4e4216ed421e.png><p>从上面的图中也可以看到，DeltaFIFO对象的queue成员中保存的是resource对应的key，而items成员其实是一个map结构： <code>map[string]Deltas</code>, key对应的就是queue中的对象的key,Deltas就是 <code>[]Delta</code> 数组，保存的是该资源对象以及该资源对象的事件event</p><h2 id=deltafifo中保存的内容>DeltaFIFO中保存的内容？</h2><p>DeltaFIFO中保存的是一个个的Deltas列表，Deltas就是某一种对象的Delta列表。</p><p>Delta对象由事件类型和对象组成，Deltas就是这些对象组成的列表，所以DeltaFIFO中保存的就是这些一个个对象的列表，比如Pod和Node是由两个不同的列表维护的。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Delta</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>Type</span>   <span class=nx>DeltaType</span>
+</span></span><span class=line><span class=cl>	<span class=nx>Object</span> <span class=kd>interface</span><span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// Deltas is a list of one or more &#39;Delta&#39;s to an individual object.
+</span></span></span><span class=line><span class=cl><span class=c1>// The oldest delta is at index 0, the newest delta is the last one.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>type</span> <span class=nx>Deltas</span> <span class=p>[]</span><span class=nx>Delta</span>
+</span></span></code></pre></td></tr></table></div></div><p>DeltaFIFO结构中比较重要的几个成员如下所示，以及几个变量的作用也已经在上面进行注释：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>DeltaFIFO</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// `items` maps a key to a Deltas.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// Each such Deltas has at least one Delta.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>items</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=nx>Deltas</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// `queue` maintains FIFO order of keys for consumption in Pop().
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// There are no duplicates in `queue`.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// A key is in `queue` if and only if it is in `items`.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>queue</span> <span class=p>[]</span><span class=kt>string</span>
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  <span class=o>...</span>
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  <span class=c1>// keyFunc is used to make the key used for queued item
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// insertion and retrieval, and should be deterministic.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>keyFunc</span> <span class=nx>KeyFunc</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=event事件是如何消费的>Event事件是如何消费的？</h2><p>保存在DeltaFIFO中的事件的对其进行消费是client-go另外一条重要的主线。</p><p>在shared_informer.go的Run函数主要启动了两个部分：Controller和sharedProcessor。具体代码如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// tools/cache/shared_informer.go 
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>sharedIndexInformer</span><span class=p>)</span> <span class=nf>Run</span><span class=p>(</span><span class=nx>stopCh</span> <span class=o>&lt;-</span><span class=kd>chan</span> <span class=kd>struct</span><span class=p>{})</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>utilruntime</span><span class=p>.</span><span class=nf>HandleCrash</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>if</span> <span class=nx>s</span><span class=p>.</span><span class=nf>HasStarted</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>klog</span><span class=p>.</span><span class=nf>Warningf</span><span class=p>(</span><span class=s>&#34;The sharedIndexInformer has started, run more than once is not allowed&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=k>return</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 创建带有indexer的DeltaFIFO
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// 所以后面使用的FIFO其实就是DeltaFIFO
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>fifo</span> <span class=o>:=</span> <span class=nf>NewDeltaFIFOWithOptions</span><span class=p>(</span><span class=nx>DeltaFIFOOptions</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>KnownObjects</span><span class=p>:</span>          <span class=nx>s</span><span class=p>.</span><span class=nx>indexer</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>EmitDeltaTypeReplaced</span><span class=p>:</span> <span class=kc>true</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>	<span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>//  在controller定义的Config,用于创建Controller
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// Config中包含了DeltaFIFO/ListerWatcher两个重要组件,同时还有用于处理Delta的Process
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>cfg</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>Config</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>Queue</span><span class=p>:</span>            <span class=nx>fifo</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>ListerWatcher</span><span class=p>:</span>    <span class=nx>s</span><span class=p>.</span><span class=nx>listerWatcher</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>ObjectType</span><span class=p>:</span>       <span class=nx>s</span><span class=p>.</span><span class=nx>objectType</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>FullResyncPeriod</span><span class=p>:</span> <span class=nx>s</span><span class=p>.</span><span class=nx>resyncCheckPeriod</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>RetryOnError</span><span class=p>:</span>     <span class=kc>false</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>ShouldResync</span><span class=p>:</span>     <span class=nx>s</span><span class=p>.</span><span class=nx>processor</span><span class=p>.</span><span class=nx>shouldResync</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=c1>// 这里注册的就是处理Delta的函数（ProcessFunc）
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>// 这个函数在Delta从FIFO中被弹出来之前被调用,调用顺序是：
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>// 这个也是WatchEvent消费过程：Controller.Run()-&gt;Controller.ProcessLoop()-&gt;queue.Pop()-&gt;sharedIndexInformer.HandleDeltas()
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=nx>Process</span><span class=p>:</span>           <span class=nx>s</span><span class=p>.</span><span class=nx>HandleDeltas</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>WatchErrorHandler</span><span class=p>:</span> <span class=nx>s</span><span class=p>.</span><span class=nx>watchErrorHandler</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// 根据Config对象创建一个Controller。这里会创建一个函数块，函数块的目的是加锁
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>s</span><span class=p>.</span><span class=nx>startedLock</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=k>defer</span> <span class=nx>s</span><span class=p>.</span><span class=nx>startedLock</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=nx>s</span><span class=p>.</span><span class=nx>controller</span> <span class=p>=</span> <span class=nf>New</span><span class=p>(</span><span class=nx>cfg</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=nx>s</span><span class=p>.</span><span class=nx>controller</span><span class=p>.(</span><span class=o>*</span><span class=nx>controller</span><span class=p>).</span><span class=nx>clock</span> <span class=p>=</span> <span class=nx>s</span><span class=p>.</span><span class=nx>clock</span>
+</span></span><span class=line><span class=cl>		<span class=nx>s</span><span class=p>.</span><span class=nx>started</span> <span class=p>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>	<span class=p>}()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// 调用时间处理函数，处理DeltaFIFO
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// 启用Process
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// Separate stop channel because Processor should be stopped strictly after controller
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>processorStopCh</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>(</span><span class=kd>chan</span> <span class=kd>struct</span><span class=p>{})</span>
+</span></span><span class=line><span class=cl>	<span class=kd>var</span> <span class=nx>wg</span> <span class=nx>wait</span><span class=p>.</span><span class=nx>Group</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>wg</span><span class=p>.</span><span class=nf>Wait</span><span class=p>()</span>              <span class=c1>// Wait for Processor to stop
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>defer</span> <span class=nb>close</span><span class=p>(</span><span class=nx>processorStopCh</span><span class=p>)</span> <span class=c1>// Tell Processor to stop
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>wg</span><span class=p>.</span><span class=nf>StartWithChannel</span><span class=p>(</span><span class=nx>processorStopCh</span><span class=p>,</span> <span class=nx>s</span><span class=p>.</span><span class=nx>cacheMutationDetector</span><span class=p>.</span><span class=nx>Run</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 这里调用了sharedProcessor.run方法
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>wg</span><span class=p>.</span><span class=nf>StartWithChannel</span><span class=p>(</span><span class=nx>processorStopCh</span><span class=p>,</span> <span class=nx>s</span><span class=p>.</span><span class=nx>processor</span><span class=p>.</span><span class=nx>run</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>s</span><span class=p>.</span><span class=nx>startedLock</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=k>defer</span> <span class=nx>s</span><span class=p>.</span><span class=nx>startedLock</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=nx>s</span><span class=p>.</span><span class=nx>stopped</span> <span class=p>=</span> <span class=kc>true</span> <span class=c1>// Don&#39;t want any new listeners
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=p>}()</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 启动controller--启动reflector--ListerWatcher同步apiServer数据，并且watch apiServer将event加入到DeltaFIFO中
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// 同时调用controller.processLoop函数进行处理
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>s</span><span class=p>.</span><span class=nx>controller</span><span class=p>.</span><span class=nf>Run</span><span class=p>(</span><span class=nx>stopCh</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=controller做了什么>Controller做了什么</h3><p>Controller的Run方法做了三件事：</p><ol><li>创建并启动新的Reflector，调用Reflector的Run函数进行ListAndWatch，ListWatch会将监听到的对象事件保存到DeltaFIFO中；</li><li>并且会调用controller的processLoop函数完成对DeltaFIFO的消费，即从Reflector的queue成员中依次弹出要处理的对象，并且调用PopProcessFunc函数处理；</li><li>processFunc其实就是HandleDeltas函数，随后HandleDeltas调用了processDeltas，该函数是核心工作内容：（1）添加（更新/删除）Delta的obj成员到Indexer(也就是本地缓存)中；（2）添加（更新/删除）Delta的obj成员到AddChan（workqueue）中等待sharedProcessor进行一次从queue（chan）中取出进行处理。</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// tools/cache/controller.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>c</span> <span class=o>*</span><span class=nx>controller</span><span class=p>)</span> <span class=nf>processLoop</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>obj</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>c</span><span class=p>.</span><span class=nx>config</span><span class=p>.</span><span class=nx>Queue</span><span class=p>.</span><span class=nf>Pop</span><span class=p>(</span><span class=nf>PopProcessFunc</span><span class=p>(</span><span class=nx>c</span><span class=p>.</span><span class=nx>config</span><span class=p>.</span><span class=nx>Process</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=k>if</span> <span class=nx>err</span> <span class=o>==</span> <span class=nx>ErrFIFOClosed</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>				<span class=k>return</span>
+</span></span><span class=line><span class=cl>			<span class=p>}</span>
+</span></span><span class=line><span class=cl>			<span class=k>if</span> <span class=nx>c</span><span class=p>.</span><span class=nx>config</span><span class=p>.</span><span class=nx>RetryOnError</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>				<span class=c1>// This is the safe way to re-enqueue.
+</span></span></span><span class=line><span class=cl><span class=c1></span>				<span class=nx>c</span><span class=p>.</span><span class=nx>config</span><span class=p>.</span><span class=nx>Queue</span><span class=p>.</span><span class=nf>AddIfNotPresent</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=p>}</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>从上面可以看到，这里的处理函数实际是config配置的Process成员，在shared_informer.go中，这里的Process函数是HandleDeltas函数。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// tools/cache/shared_informer.go Run()
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>cfg</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>Config</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>Queue</span><span class=p>:</span>            <span class=nx>fifo</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>ListerWatcher</span><span class=p>:</span>    <span class=nx>s</span><span class=p>.</span><span class=nx>listerWatcher</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>ObjectType</span><span class=p>:</span>       <span class=nx>s</span><span class=p>.</span><span class=nx>objectType</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>FullResyncPeriod</span><span class=p>:</span> <span class=nx>s</span><span class=p>.</span><span class=nx>resyncCheckPeriod</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>RetryOnError</span><span class=p>:</span>     <span class=kc>false</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>ShouldResync</span><span class=p>:</span>     <span class=nx>s</span><span class=p>.</span><span class=nx>processor</span><span class=p>.</span><span class=nx>shouldResync</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=c1>// 这里注册的就是处理Delta的函数（ProcessFunc）
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>// 这个函数在Delta从FIFO中被弹出来之前被调用,调用顺序是：
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>// 这个也是WatchEvent消费过程：Controller.Run()-&gt;Controller.ProcessLoop()-&gt;queue.Pop()-&gt;sharedIndexInformer.HandleDeltas()
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=nx>Process</span><span class=p>:</span>           <span class=nx>s</span><span class=p>.</span><span class=nx>HandleDeltas</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>		<span class=nx>WatchErrorHandler</span><span class=p>:</span> <span class=nx>s</span><span class=p>.</span><span class=nx>watchErrorHandler</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>HandleDealtas函数调用了processDeltas函数，该函数的具体的实现如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// tools/cache/controller.go processDeltas()
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=nf>processDeltas</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// Object which receives event notifications from the given deltas
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>handler</span> <span class=nx>ResourceEventHandler</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>	<span class=nx>clientState</span> <span class=nx>Store</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>	<span class=nx>transformer</span> <span class=nx>TransformFunc</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>	<span class=nx>deltas</span> <span class=nx>Deltas</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// from oldest to newest
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>d</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>deltas</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>obj</span> <span class=o>:=</span> <span class=nx>d</span><span class=p>.</span><span class=nx>Object</span>
+</span></span><span class=line><span class=cl>		<span class=k>if</span> <span class=nx>transformer</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=kd>var</span> <span class=nx>err</span> <span class=kt>error</span>
+</span></span><span class=line><span class=cl>			<span class=nx>obj</span><span class=p>,</span> <span class=nx>err</span> <span class=p>=</span> <span class=nf>transformer</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>				<span class=k>return</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>			<span class=p>}</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>		<span class=c1>// 这里会完成两个工作：
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>// 1. 更新Local Store(Indexer);
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>// 2. 完成事件分发（这里实际上还没有真正的处理事件，而是调用了sharedIndexInformer.OnAdd/OnUpdate/OnDelete）
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>//       在sharedIndexInformer的这些函数中，完成了事件分发。分发的依据就是根据事件的类型（add/update/delete），
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=c1>//       具体的看sharedIndexInformer.OnAdd/OnUpdate/OnDelete下面的distribute函数
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=k>switch</span> <span class=nx>d</span><span class=p>.</span><span class=nx>Type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>case</span> <span class=nx>Sync</span><span class=p>,</span> <span class=nx>Replaced</span><span class=p>,</span> <span class=nx>Added</span><span class=p>,</span> <span class=nx>Updated</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>			<span class=k>if</span> <span class=nx>old</span><span class=p>,</span> <span class=nx>exists</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>clientState</span><span class=p>.</span><span class=nf>Get</span><span class=p>(</span><span class=nx>obj</span><span class=p>);</span> <span class=nx>err</span> <span class=o>==</span> <span class=kc>nil</span> <span class=o>&amp;&amp;</span> <span class=nx>exists</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>				<span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>clientState</span><span class=p>.</span><span class=nf>Update</span><span class=p>(</span><span class=nx>obj</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>					<span class=k>return</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>				<span class=p>}</span>
+</span></span><span class=line><span class=cl>				<span class=nx>handler</span><span class=p>.</span><span class=nf>OnUpdate</span><span class=p>(</span><span class=nx>old</span><span class=p>,</span> <span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>				<span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>clientState</span><span class=p>.</span><span class=nf>Add</span><span class=p>(</span><span class=nx>obj</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>					<span class=k>return</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>				<span class=p>}</span>
+</span></span><span class=line><span class=cl>				<span class=nx>handler</span><span class=p>.</span><span class=nf>OnAdd</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=p>}</span>
+</span></span><span class=line><span class=cl>		<span class=k>case</span> <span class=nx>Deleted</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>			<span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>clientState</span><span class=p>.</span><span class=nf>Delete</span><span class=p>(</span><span class=nx>obj</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>				<span class=k>return</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>			<span class=p>}</span>
+</span></span><span class=line><span class=cl>			<span class=nx>handler</span><span class=p>.</span><span class=nf>OnDelete</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>从代码可以看出，该函数主要使用for遍历弹出的一个Deltas（某一个obj的列表）。根据Deltas的数据类型进行区分，主要做了两部分工作：</p><ol><li><p>更新Local Store(Indexer) ，就是将这些Delta添加/更新/删除(有Type和Object,这里只添加/更新/删除了Object,也就是本地对象缓存Indexer中)，所以这里也是保证Indexer中和etcd数据库中的数据一致的实现。实时更新。</p></li><li><p>完成事件分发。（这里实际上还没有真正的处理事件，而是调用了sharedIndexInformer.OnAdd/OnUpdate/OnDelete）。分发的依据就是根据事件的类型（add/update/delete）。</p><blockquote><p>所谓的分发就是添加到workqueue（开具第一张图中介绍）中等待处理。</p></blockquote></li></ol><p>这里以Add事件进行说明，追踪的是<code>handler.OnAdd(obj)</code>这个方法。</p><p>上面的processDeltas函数传入的第一个参数是sharedIndexInformer对象，又因为sharedIndexInformer实现了ResourceEventHandler接口，所以上面的<code>handler.OnAdd(obj)</code>最终会调用的是sharedIndexInformer的OnAdd方法，该方法如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// tools/cache/shared_informer.go OnAdd()
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>sharedIndexInformer</span><span class=p>)</span> <span class=nf>OnAdd</span><span class=p>(</span><span class=nx>obj</span> <span class=kd>interface</span><span class=p>{})</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// Invocation of this function is locked under s.blockDeltas, so it is
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// save to distribute the notification
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>s</span><span class=p>.</span><span class=nx>cacheMutationDetector</span><span class=p>.</span><span class=nf>AddObject</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// 这里传入的目标还是从Deltas弹出的Delta对象。调用历史：
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// for:controller.processLoop()-&gt;ProcessFunc-&gt;sharedIndexInformer.HandleDeltas()
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// -&gt;Controller.processDeltas(这里传入的参数应该是ResourceEventHandler,因为sharedIndexInformer实现了该接口，所以传入的是sharedIndexInformer对象)
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// -&gt;handler.OnAdd/OnUpdate/OnDelete = sharedIndexInformer.OnAdd/OnUpdate/OnDelete
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// -&gt;distribute
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>s</span><span class=p>.</span><span class=nx>processor</span><span class=p>.</span><span class=nf>distribute</span><span class=p>(</span><span class=nx>addNotification</span><span class=p>{</span><span class=nx>newObj</span><span class=p>:</span> <span class=nx>obj</span><span class=p>},</span> <span class=kc>false</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><span style=color:orange>上面的distribute()函数会完成事件的分发。如前所述，distribute其实就是将处理的DeltaFIFO的Obj添加到addChan中，等待处理。</span></p><blockquote><p>这里的obj类型就是DeltaFIFO item(Delta)中的对象，类型如下所示：</p><p><span style=color:red>[{Add, obj1},{Update, obj1},{Delete, obj1}]</span></p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>p</span> <span class=o>*</span><span class=nx>sharedProcessor</span><span class=p>)</span> <span class=nf>distribute</span><span class=p>(</span><span class=nx>obj</span> <span class=kd>interface</span><span class=p>{},</span> <span class=nx>sync</span> <span class=kt>bool</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=nx>p</span><span class=p>.</span><span class=nx>listenersLock</span><span class=p>.</span><span class=nf>RLock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>p</span><span class=p>.</span><span class=nx>listenersLock</span><span class=p>.</span><span class=nf>RUnlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=nx>listener</span><span class=p>,</span> <span class=nx>isSyncing</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>p</span><span class=p>.</span><span class=nx>listeners</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>switch</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>case</span> <span class=p>!</span><span class=nx>sync</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>			<span class=c1>// non-sync messages are delivered to every listener
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=nx>listener</span><span class=p>.</span><span class=nf>add</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=k>case</span> <span class=nx>isSyncing</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>			<span class=c1>// sync messages are delivered to every syncing listenter
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=nx>listener</span><span class=p>.</span><span class=nf>add</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>		<span class=k>default</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>			<span class=c1>// skipping a sync obj for a non-syncing listener
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>	<span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>上面完成事件分发其实也就是将事件通知添加到addCh中。其中for循环的listener就是processListener。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>p</span> <span class=o>*</span><span class=nx>processorListener</span><span class=p>)</span> <span class=nf>add</span><span class=p>(</span><span class=nx>notification</span> <span class=kd>interface</span><span class=p>{})</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nx>p</span><span class=p>.</span><span class=nx>addCh</span> <span class=o>&lt;-</span> <span class=nx>notification</span>  <span class=c1>// 其实这里传入的notification就是Delta对象:{Add, obj1}
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h4 id=小结>小结</h4><p>直至上面流程结束，Controller的任务（controller.run函数）的任务就结束了。总结就是干了三件大事：</p><ol><li>创建并启动Reflector，进行ListWatch操作，将结果添加到DeltaFIFO中；</li><li>并且会调用controller的processLoop函数完成对DeltaFIFO的消费，即从Reflector的queue成员中依次弹出要处理的对象，并且调用PopProcessFunc函数处理；</li><li>processFunc其实就是HandleDeltas函数，随后HandleDeltas调用了processDeltas，该函数是核心工作内容：（1）添加（更新/删除）Delta的obj成员到Indexer(也就是本地缓存)中；（2）添加（更新/删除）Delta的obj成员到AddChan（workqueue）中等待sharedProcessor进行一次从queue（chan）中取出进行处理。</li></ol><h3 id=sharedprocessor是如何处理addchan中的对象的>sharedProcessor是如何处理addChan中的对象的</h3><p>然后是交由sharedProcessor的run函数进行处理。run函数的调用也是在sharedIndexInformer中单独的协程中进行处理：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nx>wg</span><span class=p>.</span><span class=nf>StartWithChannel</span><span class=p>(</span><span class=nx>processorStopCh</span><span class=p>,</span> <span class=nx>s</span><span class=p>.</span><span class=nx>processor</span><span class=p>.</span><span class=nx>run</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>这里会启动两个协程同时去处理：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>p</span> <span class=o>*</span><span class=nx>sharedProcessor</span><span class=p>)</span> <span class=nf>run</span><span class=p>(</span><span class=nx>stopCh</span> <span class=o>&lt;-</span><span class=kd>chan</span> <span class=kd>struct</span><span class=p>{})</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nx>p</span><span class=p>.</span><span class=nx>listenersLock</span><span class=p>.</span><span class=nf>RLock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=k>defer</span> <span class=nx>p</span><span class=p>.</span><span class=nx>listenersLock</span><span class=p>.</span><span class=nf>RUnlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>		<span class=c1>// 同时启动两个协程去进行run和pop
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=k>for</span> <span class=nx>listener</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>p</span><span class=p>.</span><span class=nx>listeners</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=nx>p</span><span class=p>.</span><span class=nx>wg</span><span class=p>.</span><span class=nf>Start</span><span class=p>(</span><span class=nx>listener</span><span class=p>.</span><span class=nx>run</span><span class=p>)</span> <span class=c1>// run
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=nx>p</span><span class=p>.</span><span class=nx>wg</span><span class=p>.</span><span class=nf>Start</span><span class=p>(</span><span class=nx>listener</span><span class=p>.</span><span class=nx>pop</span><span class=p>)</span> <span class=c1>// pop
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>		<span class=nx>p</span><span class=p>.</span><span class=nx>listenersStarted</span> <span class=p>=</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>	<span class=p>}()</span>
+</span></span><span class=line><span class=cl>	<span class=o>&lt;-</span><span class=nx>stopCh</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>p</span><span class=p>.</span><span class=nx>listenersLock</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>defer</span> <span class=nx>p</span><span class=p>.</span><span class=nx>listenersLock</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>	<span class=k>for</span> <span class=nx>listener</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>p</span><span class=p>.</span><span class=nx>listeners</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=nb>close</span><span class=p>(</span><span class=nx>listener</span><span class=p>.</span><span class=nx>addCh</span><span class=p>)</span> <span class=c1>// Tell .pop() to stop. .pop() will tell .run() to stop
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// Wipe out list of listeners since they are now closed
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// (processorListener cannot be re-used)
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>p</span><span class=p>.</span><span class=nx>listeners</span> <span class=p>=</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=c1>// Reset to false since no listeners are running
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>p</span><span class=p>.</span><span class=nx>listenersStarted</span> <span class=p>=</span> <span class=kc>false</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=nx>p</span><span class=p>.</span><span class=nx>wg</span><span class=p>.</span><span class=nf>Wait</span><span class=p>()</span> <span class=c1>// Wait for all .pop() and .run() to stop
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>在pop的时候借助了一个无限大的循环队列（buffer.RingGrowing），原因是：<strong>pop作为addCh 的消费逻辑 必须非常快，而下游nextCh 的消费函数run 执行的速度看业务而定，中间要通过pendingNotifications 缓冲。</strong></p><p>最后run函数也非常简单，就是调用了ResourceEventHandler的方法：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// tools/cache/shared_informer run()
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>p</span> <span class=o>*</span><span class=nx>processorListener</span><span class=p>)</span> <span class=nf>run</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// this call blocks until the channel is closed.  When a panic happens during the notification
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// we will catch it, **the offending item will be skipped!**, and after a short delay (one second)
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// the next notification will be attempted.  This is usually better than the alternative of never
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=c1>// delivering again.
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=nx>stopCh</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>(</span><span class=kd>chan</span> <span class=kd>struct</span><span class=p>{})</span>
+</span></span><span class=line><span class=cl>	<span class=nx>wait</span><span class=p>.</span><span class=nf>Until</span><span class=p>(</span><span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>		<span class=k>for</span> <span class=nx>next</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>p</span><span class=p>.</span><span class=nx>nextCh</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=c1>// type updateNotification struct
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=k>switch</span> <span class=nx>notification</span> <span class=o>:=</span> <span class=nx>next</span><span class=p>.(</span><span class=kd>type</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>			<span class=k>case</span> <span class=nx>updateNotification</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>				<span class=nx>p</span><span class=p>.</span><span class=nx>handler</span><span class=p>.</span><span class=nf>OnUpdate</span><span class=p>(</span><span class=nx>notification</span><span class=p>.</span><span class=nx>oldObj</span><span class=p>,</span> <span class=nx>notification</span><span class=p>.</span><span class=nx>newObj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=c1>// type addNotification struct
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=k>case</span> <span class=nx>addNotification</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>				<span class=nx>p</span><span class=p>.</span><span class=nx>handler</span><span class=p>.</span><span class=nf>OnAdd</span><span class=p>(</span><span class=nx>notification</span><span class=p>.</span><span class=nx>newObj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=c1>// type deleteNotification struct
+</span></span></span><span class=line><span class=cl><span class=c1></span>			<span class=k>case</span> <span class=nx>deleteNotification</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>				<span class=nx>p</span><span class=p>.</span><span class=nx>handler</span><span class=p>.</span><span class=nf>OnDelete</span><span class=p>(</span><span class=nx>notification</span><span class=p>.</span><span class=nx>oldObj</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>			<span class=k>default</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>				<span class=nx>utilruntime</span><span class=p>.</span><span class=nf>HandleError</span><span class=p>(</span><span class=nx>fmt</span><span class=p>.</span><span class=nf>Errorf</span><span class=p>(</span><span class=s>&#34;unrecognized notification: %T&#34;</span><span class=p>,</span> <span class=nx>next</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>			<span class=p>}</span>
+</span></span><span class=line><span class=cl>		<span class=p>}</span>
+</span></span><span class=line><span class=cl>		<span class=c1>// the only way to get here is if the p.nextCh is empty and closed
+</span></span></span><span class=line><span class=cl><span class=c1></span>		<span class=nb>close</span><span class=p>(</span><span class=nx>stopCh</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>	<span class=p>},</span> <span class=mi>1</span><span class=o>*</span><span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>,</span> <span class=nx>stopCh</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>下面的一个图很好的表示了处理流程：</p><img width=940 alt=image-20221008152847963 src=https://user-images.githubusercontent.com/54139479/221352344-7464036d-2263-4928-82b6-d262e6194163.png><blockquote><p><strong>如果 event 处理较慢，则会导致pendingNotifications 积压，event 处理的延迟增大.</strong></p></blockquote></div><div class=post-footer id=post-footer><div class=post-info><div class=post-info-line><div class=post-info-mod><span>更新于 2023-02-26</span></div></div><div class=post-info-line><div class=post-info-md><span><a class=link-to-markdown href=/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86/index.md target=_blank>阅读原始文档</a></span></div><div class=post-info-share><span><a href=javascript:void(0); title="分享到 Twitter" data-sharer=twitter data-url=/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86/ data-title="Client Go整体流程梳理" data-hashtags=client-go><i class="fab fa-twitter fa-fw" aria-hidden=true></i></a><a href=javascript:void(0); title="分享到 Facebook" data-sharer=facebook data-url=/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86/ data-hashtag=client-go><i class="fab fa-facebook-square fa-fw" aria-hidden=true></i></a><a href=javascript:void(0); title="分享到 Hacker News" data-sharer=hackernews data-url=/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86/ data-title="Client Go整体流程梳理"><i class="fab fa-hacker-news fa-fw" aria-hidden=true></i></a><a href=javascript:void(0); title="分享到 Line" data-sharer=line data-url=/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86/ data-title="Client Go整体流程梳理"><i data-svg-src=https://cdn.jsdelivr.net/npm/simple-icons@7.3.0/icons/line.svg aria-hidden=true></i></a><a href=javascript:void(0); title="分享到 微博" data-sharer=weibo data-url=/client-go%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90-%E6%95%B4%E4%BD%93%E6%B5%81%E7%A8%8B%E6%A2%B3%E7%90%86/ data-title="Client Go整体流程梳理"><i class="fab fa-weibo fa-fw" aria-hidden=true></i></a></span></div></div></div><div class=post-info-more><section class=post-tags><i class="fas fa-tags fa-fw" aria-hidden=true></i>&nbsp;<a href=/tags/client-go/>client-go</a></section><section><span><a href=javascript:void(0); onclick=window.history.back()>返回</a></span>&nbsp;|&nbsp;<span><a href=/>主页</a></span></section></div><div class=post-nav><a href=/k8s%E7%AC%AC%E4%B8%80%E8%AF%BE-%E5%9C%A8ubuntu%E4%B8%8A%E5%AE%89%E8%A3%85k8s%E9%9B%86%E7%BE%A4/ class=prev rel=prev title=K8s第一课-在Ubuntu上安装K8s集群><i class="fas fa-angle-left fa-fw" aria-hidden=true></i>K8s第一课-在Ubuntu上安装K8s集群</a></div></div><div id=comments><div id=valine class=comment></div><noscript>Please enable JavaScript to view the comments powered by <a href=https://valine.js.org/>Valine</a>.</noscript></div></article></div></main><footer class=footer><div class=footer-container><div class=footer-line><span>码农乐园</span></div><div class=footer-line itemscope itemtype=http://schema.org/CreativeWork><i class="far fa-copyright fa-fw" aria-hidden=true></i><span itemprop=copyrightYear>2023</span><span class=author itemprop=copyrightHolder>&nbsp;<a href=/ target=_blank>CXF</a></span>&nbsp;|&nbsp;<span class=license><a rel="license external nofollow noopener noreffer" href=https://creativecommons.org/licenses/by-nc/4.0/ target=_blank>CC BY-NC 4.0</a></span></div></div></footer></div><div id=fixed-buttons><a href=# id=back-to-top class=fixed-button title=回到顶部><i class="fas fa-arrow-up fa-fw" aria-hidden=true></i>
+</a><a href=# id=view-comments class=fixed-button title=查看评论><i class="fas fa-comment fa-fw" aria-hidden=true></i></a></div><link rel=stylesheet href=/lib/valine/valine.min.css><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/lightgallery@2.5.0/css/lightgallery-bundle.min.css><script type=text/javascript src=https://cdn.jsdelivr.net/npm/valine@1.5.0/dist/Valine.min.js></script><script type=text/javascript src=https://cdn.jsdelivr.net/npm/autocomplete.js@0.38.1/dist/autocomplete.min.js></script><script type=text/javascript src=https://cdn.jsdelivr.net/npm/algoliasearch@4.13.1/dist/algoliasearch-lite.umd.min.js></script><script type=text/javascript src=https://cdn.jsdelivr.net/npm/lazysizes@5.3.2/lazysizes.min.js></script><script type=text/javascript src=https://cdn.jsdelivr.net/npm/lightgallery@2.5.0/lightgallery.min.js></script><script type=text/javascript src=https://cdn.jsdelivr.net/npm/lightgallery@2.5.0/plugins/thumbnail/lg-thumbnail.min.js></script><script type=text/javascript src=https://cdn.jsdelivr.net/npm/lightgallery@2.5.0/plugins/zoom/lg-zoom.min.js></script><script type=text/javascript src=https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js></script><script type=text/javascript src=https://cdn.jsdelivr.net/npm/sharer.js@0.5.1/sharer.min.js></script><script type=text/javascript>window.config={code:{copyTitle:"复制到剪贴板",maxShownLines:50},comment:{valine:{appId:"QGzwQXOqs5JOhN4RGPOkR2mR-MdYXbMMI",appKey:"WBmoGyJtbqUswvfLh6L8iEBr",avatar:"mp",el:"#valine",emojiCDN:"https://cdn.jsdelivr.net/npm/emoji-datasource-google@14.0.0/img/google/64/",emojiMaps:{100:"1f4af.png",alien:"1f47d.png",anger:"1f4a2.png",angry:"1f620.png",anguished:"1f627.png",astonished:"1f632.png",black_heart:"1f5a4.png",blue_heart:"1f499.png",blush:"1f60a.png",bomb:"1f4a3.png",boom:"1f4a5.png",broken_heart:"1f494.png",brown_heart:"1f90e.png",clown_face:"1f921.png",cold_face:"1f976.png",cold_sweat:"1f630.png",confounded:"1f616.png",confused:"1f615.png",cry:"1f622.png",crying_cat_face:"1f63f.png",cupid:"1f498.png",dash:"1f4a8.png",disappointed:"1f61e.png",disappointed_relieved:"1f625.png",dizzy:"1f4ab.png",dizzy_face:"1f635.png",drooling_face:"1f924.png",exploding_head:"1f92f.png",expressionless:"1f611.png",face_vomiting:"1f92e.png",face_with_cowboy_hat:"1f920.png",face_with_hand_over_mouth:"1f92d.png",face_with_head_bandage:"1f915.png",face_with_monocle:"1f9d0.png",face_with_raised_eyebrow:"1f928.png",face_with_rolling_eyes:"1f644.png",face_with_symbols_on_mouth:"1f92c.png",face_with_thermometer:"1f912.png",fearful:"1f628.png",flushed:"1f633.png",frowning:"1f626.png",ghost:"1f47b.png",gift_heart:"1f49d.png",green_heart:"1f49a.png",grimacing:"1f62c.png",grin:"1f601.png",grinning:"1f600.png",hankey:"1f4a9.png",hear_no_evil:"1f649.png",heart:"2764-fe0f.png",heart_decoration:"1f49f.png",heart_eyes:"1f60d.png",heart_eyes_cat:"1f63b.png",heartbeat:"1f493.png",heartpulse:"1f497.png",heavy_heart_exclamation_mark_ornament:"2763-fe0f.png",hole:"1f573-fe0f.png",hot_face:"1f975.png",hugging_face:"1f917.png",hushed:"1f62f.png",imp:"1f47f.png",innocent:"1f607.png",japanese_goblin:"1f47a.png",japanese_ogre:"1f479.png",joy:"1f602.png",joy_cat:"1f639.png",kiss:"1f48b.png",kissing:"1f617.png",kissing_cat:"1f63d.png",kissing_closed_eyes:"1f61a.png",kissing_heart:"1f618.png",kissing_smiling_eyes:"1f619.png",laughing:"1f606.png",left_speech_bubble:"1f5e8-fe0f.png",love_letter:"1f48c.png",lying_face:"1f925.png",mask:"1f637.png",money_mouth_face:"1f911.png",nauseated_face:"1f922.png",nerd_face:"1f913.png",neutral_face:"1f610.png",no_mouth:"1f636.png",open_mouth:"1f62e.png",orange_heart:"1f9e1.png",partying_face:"1f973.png",pensive:"1f614.png",persevere:"1f623.png",pleading_face:"1f97a.png",pouting_cat:"1f63e.png",purple_heart:"1f49c.png",rage:"1f621.png",relaxed:"263a-fe0f.png",relieved:"1f60c.png",revolving_hearts:"1f49e.png",right_anger_bubble:"1f5ef-fe0f.png",robot_face:"1f916.png",rolling_on_the_floor_laughing:"1f923.png",scream:"1f631.png",scream_cat:"1f640.png",see_no_evil:"1f648.png",shushing_face:"1f92b.png",skull:"1f480.png",skull_and_crossbones:"2620-fe0f.png",sleeping:"1f634.png",sleepy:"1f62a.png",slightly_frowning_face:"1f641.png",slightly_smiling_face:"1f642.png",smile:"1f604.png",smile_cat:"1f638.png",smiley:"1f603.png",smiley_cat:"1f63a.png",smiling_face_with_3_hearts:"1f970.png",smiling_imp:"1f608.png",smirk:"1f60f.png",smirk_cat:"1f63c.png",sneezing_face:"1f927.png",sob:"1f62d.png",space_invader:"1f47e.png",sparkling_heart:"1f496.png",speak_no_evil:"1f64a.png",speech_balloon:"1f4ac.png","star-struck":"1f929.png",stuck_out_tongue:"1f61b.png",stuck_out_tongue_closed_eyes:"1f61d.png",stuck_out_tongue_winking_eye:"1f61c.png",sunglasses:"1f60e.png",sweat:"1f613.png",sweat_drops:"1f4a6.png",sweat_smile:"1f605.png",thinking_face:"1f914.png",thought_balloon:"1f4ad.png",tired_face:"1f62b.png",triumph:"1f624.png",two_hearts:"1f495.png",unamused:"1f612.png",upside_down_face:"1f643.png",weary:"1f629.png",white_frowning_face:"2639-fe0f.png",white_heart:"1f90d.png",wink:"1f609.png",woozy_face:"1f974.png",worried:"1f61f.png",yawning_face:"1f971.png",yellow_heart:"1f49b.png",yum:"1f60b.png",zany_face:"1f92a.png",zipper_mouth_face:"1f910.png",zzz:"1f4a4.png"},enableQQ:!1,highlight:!0,lang:"zh-CN",pageSize:10,placeholder:"你的评论 ...",recordIP:!0,serverURLs:"https://leancloud.hugoloveit.com",visitor:!0}},lightgallery:!0,search:{algoliaAppID:"PASDMWALPK",algoliaIndex:"index.zh-cn",algoliaSearchKey:"b42948e51daaa93df92381c8e2ac0f93",highlightTag:"em",maxResultLength:10,noResultsFound:"没有找到结果",snippetLength:50,type:"algolia"}}</script><script type=text/javascript src=/js/theme.min.js></script></body></html>
