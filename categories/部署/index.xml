@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
     <channel>
         <title>部署 - 分类 - Cloud native landscape</title>
@@ -14,3 +15,6 @@
 </item>
 </channel>
 </rss>
+=======
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0"><channel><title>部署 - 分类 - Cloud native landscape</title><link>/categories/%E9%83%A8%E7%BD%B2/</link><description>部署 - 分类 - Cloud native landscape</description><generator>Hugo -- gohugo.io</generator><language>zh-CN</language><managingEditor>18251716983@163.com (CXF)</managingEditor><webMaster>18251716983@163.com (CXF)</webMaster><copyright>This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.</copyright><lastBuildDate>Sun, 12 Feb 2023 13:21:54 +0800</lastBuildDate><atom:link href="/categories/%E9%83%A8%E7%BD%B2/" rel="self" type="application/rss+xml"/><item><title>K8s第一课-在Ubuntu上安装K8s集群</title><link>/k8s%E7%AC%AC%E4%B8%80%E8%AF%BE-%E5%9C%A8ubuntu%E4%B8%8A%E5%AE%89%E8%A3%85k8s%E9%9B%86%E7%BE%A4/</link><pubDate>Sun, 12 Feb 2023 13:21:54 +0800</pubDate><author>作者</author><guid>/k8s%E7%AC%AC%E4%B8%80%E8%AF%BE-%E5%9C%A8ubuntu%E4%B8%8A%E5%AE%89%E8%A3%85k8s%E9%9B%86%E7%BE%A4/</guid><description>虽然Ubuntu和Centos都是Linux系统，但是安装的命令还是稍有区别； 这里给予的Ubuntu版本是20.04，对于更早的版本没有尝试</description></item></channel></rss>
+>>>>>>> dfd0ed5a03aa9f7d5f18aecb7b92717dacdd7144
