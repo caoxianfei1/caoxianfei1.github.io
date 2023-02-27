@@ -15,16 +15,21 @@
 
 ### 2. iptables设置
 
-更改 `net.bridge.bridge-nf-call-iptables` 的值为1.（Ubuntu 20.04默认为1，可以不用做）
+确保 `br_netfilter` 模块被加载。这一操作可以通过运行 `lsmod | grep br_netfilter` 来完成。若要显式加载该模块，可执行 `sudo modprobe br_netfilter`。
 
-   ```bash
-   sudo cat >>/etc/sysctl.d/k8s.conf<< EOF
-   net.bridge.bridge-nf-call-ip6tables = 1
-   net.bridge.bridge-nf-call-iptables = 1
-   EOF
-   
-   sudo sysctl --system
-   ```
+为了让你的 Linux 节点上的 iptables 能够正确地查看桥接流量，你需要确保在你的 `sysctl` 配置中将 `net.bridge.bridge-nf-call-iptables` 设置为 1。例如：
+
+```shell
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+br_netfilter
+EOF
+
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+sudo sysctl --system
+```
 
 ### 3. 安装Docker
 
@@ -103,6 +108,8 @@ sudo apt-get update
   chmod +x pull-k8s-images.sh
   ./pull-k8s-images.sh
   ```
+
+> 上述步骤1-5需要在所有的节点执行，下面的步骤只需要在Master节点进行执行。
 
 ### 6. 安装k8s集群（kubeadm init）
 
