@@ -31,7 +31,7 @@
 安装Docker（在安装的时候可以指定版本进行安装，和想要安装的Kuberntes版本保持一致）
 
 ```bash
-sudo apt update && sudo apt -y upgrade
+sudo apt update
 
 sudo apt install -y docker.io
 
@@ -53,7 +53,7 @@ sudo cat >>/etc/apt/sources.list.d/kubernetes.list <<EOF
 deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main
 EOF
 
-sudo apt-get update && sudo apt -y upgrade
+sudo apt-get update
 ```
 
 #### 4.2 开始安装Kubeadm、kubelet、kubectl
