@@ -53,11 +53,14 @@ sudo apt-get update && sudo apt -y upgrade
 sudo apt-get install -y ca-certificates curl software-properties-common apt-transport-https
 
 sudo curl -s https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | sudo apt-key add -
+# 如果上述命令提示失败的话，使用下面的命令代替
+# curl -s https://gitee.com/thepoy/k8s/raw/master/apt-key.gpg | sudo apt-key add -
 
 sudo cat >>/etc/apt/sources.list.d/kubernetes.list <<EOF 
 deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main
 EOF
 
+# 更新apt包索引，用于安装kubelet、kubeadm和kubectl
 sudo apt-get update
 ```
 
@@ -69,6 +72,7 @@ sudo apt-get update
   
   # 安装指定版本的Kubeadm、kubelet、kubectl
   sudo apt-get install -y kubelet=1.20.15-00 kubeadm=1.20.15-00 kubectl=1.20.15-00
+  # 如果上述命令报错的话，添加 `--allow-unauthenticated` 选项
   
   systemctl enable kubelet
   systemctl enable docker
@@ -79,7 +83,6 @@ sudo apt-get update
 #### 5.1 查看 kubeadm init 时所需要的组件镜像列表
 
   ```bash
-  # ：
   kubeadm config images list
   # 输出类似如下信息，这些代表是kubeadm要下载安装的组件;
   I1025 15:01:13.041337  340088 version.go:254] remote version is much newer: v1.25.3; falling back to: stable-1.20
